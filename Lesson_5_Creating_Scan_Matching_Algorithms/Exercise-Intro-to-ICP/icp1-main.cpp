@@ -16,7 +16,7 @@ Eigen::Matrix4d ICP(PointCloudT::Ptr target, PointCloudT::Ptr source, Pose start
 	Eigen::Matrix4d transformation_matrix = Eigen::Matrix4d::Identity ();
 
 	//TODO: complete the ICP function and return the corrected transform
-	Eigen::Matrix4d initTransform = transform2d(startingPose.rotation, startingpose.position.x, startingpose.position.y);
+	Eigen::Matrix4d initTransform = transform2d(startingPose.theta, startingPose.position.x, startingPose.position.y);
 
 	PointCloudT::Ptr transformSource (new PointCloudT);
 	pcl::transformPointCloud (*source, *transformSource, initTransform);
