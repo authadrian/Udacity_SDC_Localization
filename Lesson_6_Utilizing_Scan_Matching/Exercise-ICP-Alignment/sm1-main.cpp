@@ -66,13 +66,61 @@ void keyboardEventOccurred(const pcl::visualization::KeyboardEvent &event, void*
 
 Eigen::Matrix4d ICP(PointCloudT::Ptr target, PointCloudT::Ptr source, Pose startingPose, int iterations){
 
-  	Eigen::Matrix4d transformation_matrix = Eigen::Matrix4d::Identity ();
+  	Eigen::Matrix4d transformation_matrix = Eigen::Matrix4d::Identity();
 
-  	// TODO: Implement the PCL ICP function and return the correct transformation matrix
-  	// .....
-  	
-  	return transformation_matrix;
+	// TODO: Implement the PCL ICP function and return the correct transformation matrix
 
+  	// Step 1: Transform the source to the startingPose
+  	// Create transformation matrix from the startingPose
+  	Eigen::Matrix4d initTransform = transform3D(
+        startingPose.rotation.yaw,
+        startingPose.rotation.pitch,
+        startingPose.rotation.roll,
+        startingPose.position.x,
+        startingPose.position.y,
+        startingPose.position.z
+    );
+    
+    // Create a transformed source point cloud
+    PointCloudT::Ptr transformSource(new PointCloudT);
+    pcl::transformPointCloud(*source, *transformSource, initTransform);
+    
+	// Timer for testing correct iterations count later
+	pcl::console::TicToc time;
+	time.tic();
+
+    // Step 2 & 3: Create the PCL ICP object and set its parameters
+    pcl::IterativeClosestPoint<PointT, PointT> icp;
+    
+    // Set ICP parameters
+    icp.setMaximumIterations(iterations);
+    icp.setInputSource(transformSource);
+    icp.setInputTarget(target);
+    icp.setMaxCorrespondenceDistance(2);  // Max distance between corresponding points
+    
+    // Optional parameters for fine-tuning
+    // icp.setTransformationEpsilon(0.001);  // Transformation threshold for convergence
+    // icp.setEuclideanFitnessEpsilon(0.05); // Fitness score threshold for convergence
+    
+    // Step 4: Perform ICP alignment
+    PointCloudT::Ptr aligned_cloud(new PointCloudT);
+    icp.align(*aligned_cloud);
+	// Time taken for ICP to run
+	std::cout << "Applied " << iterations << " ICP iteration(s) in " << time.toc () << " ms" << std::endl;
+    
+    // Step 5 & 6: Check convergence and return appropriate transformation
+    if (icp.hasConverged()) {
+        // Get the final transformation and adjust by initial transform
+        Eigen::Matrix4d icp_transform = icp.getFinalTransformation().cast<double>();
+        transformation_matrix = icp_transform * initTransform;
+		// Print Fitness Score for testing correct iteration count. Lower Fitness the better.
+		std::cout << "ICP has converged, score is " << icp.getFitnessScore() << std::endl;
+        return transformation_matrix;
+    } else {
+        // If ICP did not converge, log message and return identity matrix
+        std::cout << "WARNING: ICP did not converge" << std::endl;
+        return transformation_matrix;  // Return the identity matrix as initialized
+    }
 }
 
 void drawCar(Pose pose, int num, Color color, double alpha, pcl::visualization::PCLVisualizer::Ptr& viewer){
@@ -159,14 +207,22 @@ int main(){
 	drawCar(truePose[0], 0,  Color(1,0,0), 0.7, viewer);
 
 	// Load input scan
-	PointCloudT::Ptr scanCloud(new PointCloudT);
-  	pcl::io::loadPCDFile("scan1.pcd", *scanCloud);
+	vector<PointCloudT::Ptr> scans;
+	loadScans(scans, 1);  // Load scan data into a vector for continuous processing
 
+	// Create filtered point cloud
 	typename pcl::PointCloud<PointT>::Ptr cloudFiltered (new pcl::PointCloud<PointT>);
 
-	cloudFiltered = scanCloud; // TODO: remove this line
-	//TODO: Create voxel filter for input scan and save to cloudFiltered
-	// ......
+	// Apply voxel grid filtering to downsample the input scan for improved processing speed
+	pcl::VoxelGrid<PointT> vg;
+	vg.setInputCloud(scans[0]);  // Filter the first scan in the vector
+	double filterRes = 0.5;  // 0.5m resolution is a good balance for detail vs. performance
+	vg.setLeafSize(filterRes, filterRes, filterRes);
+	vg.filter(*cloudFiltered);
+
+	// Output statistics to understand the downsampling effect
+	std::cout << "Input scan: " << scans[0]->points.size() << " points" << std::endl;
+	std::cout << "Filtered scan: " << cloudFiltered->points.size() << " points" << std::endl;
 
 	PointCloudT::Ptr transformed_scan (new PointCloudT);
 	Tester tester;
@@ -177,7 +233,7 @@ int main(){
 
 		if( matching != Off){
 			if( matching == Icp)
-				transform = ICP(mapCloud, cloudFiltered, pose, 0); //TODO: change the number of iterations to positive number
+				transform = ICP(mapCloud, cloudFiltered, pose, 10); // Changed to 10 iterations, check if efficient enough
   			pose = getPose(transform);
 			if( !tester.Displacement(pose) ){
 				if(matching == Icp)
