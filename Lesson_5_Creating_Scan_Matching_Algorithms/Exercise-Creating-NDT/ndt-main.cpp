@@ -61,9 +61,13 @@ void keyboardEventOccurred(const pcl::visualization::KeyboardEvent &event, void*
 
 double Probability(Eigen::MatrixXd X, Eigen::MatrixXd Q, Eigen::MatrixXd S){
     
+	// additional check preventing numerical instability
+	// when the covariance matrix S is close to singular (non-invertible).
+	// not part of udacity solution
     double det = S.determinant();
     if(det < 1e-8)
-        return 0.0;
+       return 0.0;
+	
     Eigen::MatrixXd diff = X - Q;
     double exponent = -0.5 * (diff.transpose() * S.inverse() * diff)(0,0);
     return exp(exponent);
@@ -242,8 +246,8 @@ void NewtonsMethod(PointT point, double theta, Cell cell, Eigen::MatrixBase<Deri
 
 	// TODO: Get the Q and S matrices from cell, invert S matrix
 	Eigen::MatrixXd Q = cell.Q;
-Eigen::MatrixXd S = cell.S;
-Eigen::MatrixXd Si = S.inverse();
+	Eigen::MatrixXd S = cell.S;
+	Eigen::MatrixXd Si = S.inverse();
 
 	// TODO: make a 2 x 1 matrix from input point
 	Eigen::MatrixXd X(2,1);
@@ -282,15 +286,15 @@ Eigen::MatrixXd Si = S.inverse();
 	// TODO: calculate the matrix H which uses q, exponential, S inverse, partial derivatives, and second order partial derivative
 	Eigen::MatrixXd H(3,3);
 	H << Eigen::MatrixXd::Zero(3,3);
-	H(0,0) = (-EXP * ((q.transpose()*Si*q_p1)*(q.transpose()*Si*q_p1) + (q_p1.transpose()*Si*q_p1)))(0,0);
-	H(0,1) = (-EXP * ((q.transpose()*Si*q_p1)*(q.transpose()*Si*q_p2) + (q_p2.transpose()*Si*q_p1)))(0,0);
-	H(0,2) = (-EXP * ((q.transpose()*Si*q_p1)*(q.transpose()*Si*q_p3) + (q_p3.transpose()*Si*q_p1)))(0,0);
-	H(1,0) = (-EXP * ((q.transpose()*Si*q_p2)*(q.transpose()*Si*q_p1) + (q_p1.transpose()*Si*q_p2)))(0,0);
-	H(1,1) = (-EXP * ((q.transpose()*Si*q_p2)*(q.transpose()*Si*q_p2) + (q_p2.transpose()*Si*q_p2)))(0,0);
-	H(1,2) = (-EXP * ((q.transpose()*Si*q_p2)*(q.transpose()*Si*q_p3) + (q_p3.transpose()*Si*q_p2)))(0,0);
-	H(2,0) = (-EXP * ((q.transpose()*Si*q_p3)*(q.transpose()*Si*q_p1) + (q_p1.transpose()*Si*q_p3)))(0,0);
-H(2,1) = (-EXP * ((q.transpose()*Si*q_p3)*(q.transpose()*Si*q_p2) + (q_p2.transpose()*Si*q_p3)))(0,0);
-H(2,2) = (-EXP * ((q.transpose()*Si*q_p3)*(q.transpose()*Si*q_p3) + (q.transpose()*Si*q_pp) + (q_p3.transpose()*Si*q_p3)))(0,0);
+	H(0,0) = (-EXP*( (-q.transpose()*Si*q_p1)*(-q.transpose()*Si*q_p1)+(-q_p1.transpose()*Si*q_p1)))(0,0);
+	H(0,1) = (-EXP*( (-q.transpose()*Si*q_p1)*(-q.transpose()*Si*q_p2)+(-q_p2.transpose()*Si*q_p1)))(0,0);
+	H(0,2) = (-EXP*( (-q.transpose()*Si*q_p1)*(-q.transpose()*Si*q_p3)+(-q_p3.transpose()*Si*q_p1)))(0,0);
+	H(1,0) = (-EXP*( (-q.transpose()*Si*q_p2)*(-q.transpose()*Si*q_p1)+(-q_p1.transpose()*Si*q_p2)))(0,0);
+	H(1,1) = (-EXP*( (-q.transpose()*Si*q_p2)*(-q.transpose()*Si*q_p2)+(-q_p2.transpose()*Si*q_p2)))(0,0);
+	H(1,2) = (-EXP*( (-q.transpose()*Si*q_p2)*(-q.transpose()*Si*q_p3)+(-q_p3.transpose()*Si*q_p2)))(0,0);
+	H(2,0) = (-EXP*( (-q.transpose()*Si*q_p3)*(-q.transpose()*Si*q_p1)+(-q_p1.transpose()*Si*q_p3)))(0,0);
+	H(2,1) = (-EXP*( (-q.transpose()*Si*q_p3)*(-q.transpose()*Si*q_p2)+(-q_p2.transpose()*Si*q_p3)))(0,0);
+	H(2,2) = (-EXP*( (-q.transpose()*Si*q_p3)*(-q.transpose()*Si*q_p3)+(-q.transpose()*Si*q_pp)+(-q_p3.transpose()*Si*q_p3)))(0,0);
 
 	H_previous += H;
 	g_previous += g;
@@ -547,8 +551,8 @@ int main(){
 						// TODO: calculate the new point pointTran, by transforming point by x, y, and theta 
 						// 	   pointTran(new x, new y, point.z), values below should be nonzero
 						double new_x = point.x * cos(theta) - point.y * sin(theta) + x;
-double new_y = point.x * sin(theta) + point.y * cos(theta) + y;
-PointT pointTran(new_x, new_y, point.z);
+						double new_y = point.x * sin(theta) + point.y * cos(theta) + y;
+						PointT pointTran(new_x, new_y, point.z);
 						NewtonsMethod(pointTran, theta, cell, g, H);
 					}
 				}

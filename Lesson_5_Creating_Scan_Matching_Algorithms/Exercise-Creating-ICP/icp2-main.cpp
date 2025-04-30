@@ -84,6 +84,7 @@ double Score(vector<int> pairs, PointCloudT::Ptr target, PointCloudT::Ptr source
 	}
 	return score;
 }
+vector<Pair> estimations;
 
 vector<int> NN(PointCloudT::Ptr target, PointCloudT::Ptr source, Eigen::Matrix4d initTransform, double dist){
 	
@@ -148,8 +149,8 @@ Eigen::Matrix4d ICP(vector<int> associations, PointCloudT::Ptr target, PointClou
   	Eigen::Matrix4d transformation_matrix = Eigen::Matrix4d::Identity();
 
   	// TODO: transform source by startingPose
-	Eigen::Matrix4d initTransform = transform2d(startingPose.rotation, startingpose.position.x, startingpose.position.y);
-	
+	Eigen::Matrix4d initTransform = transform3D(startingPose.rotation.yaw, startingPose.rotation.pitch, startingPose.rotation.roll, startingPose.position.x, startingPose.position.y, startingPose.position.z);
+
 	PointCloudT::Ptr transformSource (new PointCloudT);
 	pcl::transformPointCloud (*source, *transformSource, initTransform);
 
@@ -213,7 +214,7 @@ Eigen::Matrix4d ICP(vector<int> associations, PointCloudT::Ptr target, PointClou
   	// [ 0 0 1 0]
   	// [ 0 0 0 1]
 
-	Eigen::Matrix4d transformation_matrix;
+	//Eigen::Matrix4d transformation_matrix;
 	transformation_matrix << Eigen::MatrixXd::Identity(4,4);
   
 	transformation_matrix(0,0) = R(0,0);
