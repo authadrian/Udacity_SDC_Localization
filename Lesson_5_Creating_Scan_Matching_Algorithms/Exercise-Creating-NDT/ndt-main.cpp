@@ -404,7 +404,7 @@ int main(){
 	viewer->registerKeyboardCallback(keyboardEventOccurred, (void*)&viewer);
 
 	// Part 1: Visualize a PDF cell
-	bool part1 = true;
+	bool part1 = false;
 	if(part1){
 		// Create Input from set of points in (x,y) range 0 - 10
 		PointCloudT::Ptr input(new PointCloudT);

@@ -134,6 +134,15 @@ void drawCar(Pose pose, int num, Color color, double alpha, pcl::visualization::
 	renderBox(viewer, box, num, color, alpha);
 }
 
+void loadScans(vector<PointCloudT::Ptr>& scans, int num){
+	for(int index = 0; index < num; index++){
+		// Load scan
+		PointCloudT::Ptr scanCloud(new PointCloudT);
+  		pcl::io::loadPCDFile("scan"+to_string(index+1)+".pcd", *scanCloud);
+  		scans.push_back(scanCloud);
+	}
+}
+
 struct Tester{
 
 	Pose pose;
