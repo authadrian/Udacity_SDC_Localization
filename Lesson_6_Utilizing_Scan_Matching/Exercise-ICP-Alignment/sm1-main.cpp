@@ -106,7 +106,7 @@ Eigen::Matrix4d ICP(PointCloudT::Ptr target, PointCloudT::Ptr source, Pose start
     PointCloudT::Ptr aligned_cloud(new PointCloudT);
     icp.align(*aligned_cloud);
 	// Time taken for ICP to run
-	std::cout << "Applied " << iterations << " ICP iteration(s) in " << time.toc () << " ms" << std::endl;
+	//std::cout << "Applied " << iterations << " ICP iteration(s) in " << time.toc () << " ms" << std::endl;
     
     // Step 5 & 6: Check convergence and return appropriate transformation
     if (icp.hasConverged()) {
@@ -114,7 +114,7 @@ Eigen::Matrix4d ICP(PointCloudT::Ptr target, PointCloudT::Ptr source, Pose start
         Eigen::Matrix4d icp_transform = icp.getFinalTransformation().cast<double>();
         transformation_matrix = icp_transform * initTransform;
 		// Print Fitness Score for testing correct iteration count. Lower Fitness the better.
-		std::cout << "ICP has converged, score is " << icp.getFitnessScore() << std::endl;
+		//std::cout << "ICP has converged, score is " << icp.getFitnessScore() << std::endl;
         return transformation_matrix;
     } else {
         // If ICP did not converge, log message and return identity matrix
