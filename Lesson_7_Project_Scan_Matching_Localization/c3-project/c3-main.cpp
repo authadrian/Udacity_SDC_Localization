@@ -39,6 +39,8 @@ PointCloudT pclCloud;
 cc::Vehicle::Control control;
 std::chrono::time_point<std::chrono::system_clock> currentTime;
 vector<ControlState> cs;
+int upKeyPressCount = 0; // Counter for UP key presses
+
 
 bool refresh_view = false;
 void keyboardEventOccurred(const pcl::visualization::KeyboardEvent &event, void* viewer)
@@ -53,9 +55,14 @@ void keyboardEventOccurred(const pcl::visualization::KeyboardEvent &event, void*
   	}
   	if (event.getKeySym() == "Up" && event.keyDown()){
 		cs.push_back(ControlState(0.1, 0, 0));
+		upKeyPressCount++;
+		if (upKeyPressCount == 3) {
+			std::cout << "\n*** MEDIUM SPEED REACHED (3 UP taps) ***\n" << std::endl;
+		}
   	}
 	else if (event.getKeySym() == "Down" && event.keyDown()){
-		cs.push_back(ControlState(-0.1, 0, 0)); 
+		cs.push_back(ControlState(-0.1, 0, 0));
+		upKeyPressCount = 0; // Reset the counter when DOWN is pressed
   	}
 	if(event.getKeySym() == "a" && event.keyDown()){
 		refresh_view = true;
@@ -116,7 +123,7 @@ Eigen::Matrix4d NDT(pcl::NormalDistributionsTransform<pcl::PointXYZ, pcl::PointX
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_ndt(new pcl::PointCloud<pcl::PointXYZ>);
     ndt.align(*cloud_ndt, init_guess);
     
-    std::cout << "NDT has taken " << time.toc() << " ms" << std::endl;
+    //std::cout << "NDT has taken " << time.toc() << " ms" << std::endl;
     
     return ndt.getFinalTransformation().cast<double>();
 }
@@ -273,7 +280,7 @@ int main(){
 			pose = getPose(final_transformation);
 			pose.position.x += 0;
 			
-			std::cout << "Applied 75 NDT iteration(s) in " << time.toc () << " ms" << std::endl;
+			//std::cout << "Applied 75 NDT iteration(s) in " << time.toc () << " ms" << std::endl;
 			
 
 			// TODO: Transform scan so it aligns with ego's actual pose and render that scan
