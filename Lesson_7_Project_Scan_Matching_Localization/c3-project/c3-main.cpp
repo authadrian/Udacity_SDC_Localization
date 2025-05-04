@@ -99,6 +99,28 @@ void drawCar(Pose pose, int num, Color color, double alpha, pcl::visualization::
 	renderBox(viewer, box, num, color, alpha);
 }
 
+Eigen::Matrix4d NDT(pcl::NormalDistributionsTransform<pcl::PointXYZ, pcl::PointXYZ> ndt, PointCloudT::Ptr source, Pose startingPose, int iterations){
+    
+    pcl::console::TicToc time;
+    time.tic();
+    
+    // Create the initial alignment transform
+    Eigen::AngleAxisf init_rotation(startingPose.rotation.yaw, Eigen::Vector3f::UnitZ());
+    Eigen::Translation3f init_translation(startingPose.position.x, startingPose.position.y, startingPose.position.z);
+    Eigen::Matrix4f init_guess = (init_translation * init_rotation).matrix();
+    
+    // Set NDT parameters and align
+    ndt.setMaximumIterations(iterations);
+    ndt.setInputSource(source);
+    
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_ndt(new pcl::PointCloud<pcl::PointXYZ>);
+    ndt.align(*cloud_ndt, init_guess);
+    
+    std::cout << "NDT has taken " << time.toc() << " ms" << std::endl;
+    
+    return ndt.getFinalTransformation().cast<double>();
+}
+
 int main(){
 
 	auto client = cc::Client("localhost", 2000);
@@ -144,6 +166,10 @@ int main(){
 
 	typename pcl::PointCloud<PointT>::Ptr cloudFiltered (new pcl::PointCloud<PointT>);
 	typename pcl::PointCloud<PointT>::Ptr scanCloud (new pcl::PointCloud<PointT>);
+	typename pcl::PointCloud<PointT>::Ptr rotatedCloud (new pcl::PointCloud<PointT>);
+	typename pcl::PointCloud<PointT>::Ptr alignedCloud (new pcl::PointCloud<PointT>);
+	typename pcl::PointCloud<PointT>::Ptr transformedCloud (new pcl::PointCloud<PointT>);
+	
 
 	lidar->Listen([&new_scan, &lastScanTime, &scanCloud](auto data){
 
@@ -201,15 +227,62 @@ int main(){
 			
 			new_scan = true;
 			// TODO: (Filter scan using voxel filter)
+			pcl::VoxelGrid<PointT> vg;
+			vg.setInputCloud(scanCloud);
+			double filterRes = 0.5;
+			vg.setLeafSize(filterRes, filterRes, filterRes);
+			PointCloudT::Ptr scanFiltered (new PointCloudT);
+			vg.filter(*scanFiltered);
+			
+			// Fix scan coming in non-matching orientation
+			const float theta = M_PI/2;
+			Eigen::Affine3f transform_1 = Eigen::Affine3f::Identity();
+ 			// Define a translation of 2.5 meters on the x axis.
+			transform_1.translation() << 0.0, 0.0, 0.0;
+			transform_1.scale(Eigen::Vector3f(1.0, 1.0, -1.0));
+			// The same rotation matrix as before; theta radians around Z axis
+			transform_1.rotate (Eigen::AngleAxisf (theta, Eigen::Vector3f::UnitZ()));
+			pcl::transformPointCloud (*scanFiltered, *rotatedCloud, transform_1);
+			
+			// Set initial alignment estimate from updated pose.
+			Eigen::AngleAxisf init_rotation (pose.rotation.yaw, Eigen::Vector3f::UnitZ ());
+			//Eigen::Translation3f init_translation (pose.position.x+1.25, pose.position.y, pose.position.z);
+			Eigen::Translation3f init_translation (pose.position.x+1.25, pose.position.y, pose.position.z);
+			Eigen::Matrix4f init_guess = (init_translation * init_rotation).matrix ();
+
+			// Start timer
+			pcl::console::TicToc time;
+			time.tic();
 
 			// TODO: Find pose transform by using ICP or NDT matching
 			//pose = ....
+			pcl::NormalDistributionsTransform<PointT, PointT> ndt;
+			ndt.setTransformationEpsilon(0.001); 
+			ndt.setStepSize(0.25);
+			ndt.setResolution(2.5);
+			ndt.setInputTarget(mapCloud);
+
+			// Create a starting pose for the NDT function (with the +1.25 offset you had)
+			Pose startingPose(Point(pose.position.x+1.25, pose.position.y, pose.position.z), 
+			                 Rotate(pose.rotation.yaw, pose.rotation.pitch, pose.rotation.roll));
+
+			// Call NDT function
+			Eigen::Matrix4d final_transformation = NDT(ndt, rotatedCloud, startingPose, 75);
+
+			// Update pose with result and store transformation for later use
+			pose = getPose(final_transformation);
+			pose.position.x += 0;
+			
+			std::cout << "Applied 75 NDT iteration(s) in " << time.toc () << " ms" << std::endl;
+			
 
 			// TODO: Transform scan so it aligns with ego's actual pose and render that scan
+			Eigen::Matrix4d applyTransform = transform3D(pose.rotation.yaw, pose.rotation.pitch, pose.rotation.roll, pose.position.x, pose.position.y, pose.position.z);
+			pcl::transformPointCloud(*rotatedCloud, *transformedCloud, applyTransform);
 
 			viewer->removePointCloud("scan");
 			// TODO: Change `scanCloud` below to your transformed scan
-			renderPointCloud(viewer, scanCloud, "scan", Color(1,0,0) );
+			renderPointCloud(viewer, transformedCloud, "scan", Color(1,0,0) );
 
 			viewer->removeAllShapes();
 			drawCar(pose, 1,  Color(0,1,0), 0.35, viewer);
